@@ -33,6 +33,22 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Root route - convenience health/info endpoint
+app.get('/', (req, res) => {
+  res.json({
+    name: 'ColdEx Ecommerce Backend',
+    status: 'ok',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      auth: '/auth',
+      products: '/products',
+      collections: '/collections',
+      upload: '/upload',
+    },
+  });
+});
+
 // Health check (Render uses this for health checks)
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'colded-ecommerce-backend', time: new Date().toISOString() });
@@ -44,10 +60,23 @@ app.use('/collections', collectionRoutes);
 app.use('/products', productRoutes);
 app.use('/upload', uploadRoutes);
 
-// 404
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
-});
+// Serve static frontend build (after npm run build in root)
+const path = require('path');
+const fs = require('fs');
+const distPath = path.join(__dirname, '..', '..', 'dist');
+
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  // Catch-all: serve index.html for non-API routes (SPA fallback)
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+} else {
+  // 404 if no build exists
+  app.use((req, res) => {
+    res.status(404).json({ error: 'Not found' });
+  });
+}
 
 // Global error handler
 app.use((err, req, res, next) => {
